@@ -1,6 +1,6 @@
 --index-url https://download.pytorch.org/whl/cu118
 torch<3.0.0, >=2.0.0
-
-pyhocon
+--index-url https://mirrors.aliyun.com/pypi/simple
+pyhocon<1.0.0, >0.3.60
 transformers<5.0.0, >=4.27.3
 peft<1.0.0, >=0.2.0
