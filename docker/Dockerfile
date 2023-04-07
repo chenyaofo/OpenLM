@@ -1,4 +1,4 @@
-FROM nvidia/cuda:11.8.0-devel-ubuntu22.04
+FROM nvidia/cuda:11.7.0-devel-ubuntu22.04
 
 ENV LANG=C.UTF-8 LC_ALL=C.UTF-8 \
     PATH=/opt/conda/bin:$PATH \
@@ -29,5 +29,5 @@ RUN /opt/conda/bin/mamba create -n dev python=${PYTHON_VERSION} && \
 
 RUN PIP_INSTALL="/opt/conda/envs/dev/bin/pip install --no-cache-dir" && \
     $PIP_INSTALL -r https://raw.githubusercontent.com/chenyaofo/OpenLM/main/requirements/torch.txt && \
-    $PIP_INSTALL -r https://raw.githubusercontent.com/chenyaofo/OpenLM/main/requirements/base.txt && \
+    CUDA_EXT=1 $PIP_INSTALL -r https://raw.githubusercontent.com/chenyaofo/OpenLM/main/requirements/base.txt && \
     echo 'PIP Install Done!'
