@@ -2,3 +2,4 @@
 pyhocon<1.0.0, >=0.3.60
 transformers<5.0.0, >=4.27.3
 peft<1.0.0, >=0.2.0
+colossalai<1.0.0, >=0.2.8
