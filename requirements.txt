@@ -1,5 +1,6 @@
 --index-url https://download.pytorch.org/whl/cu118
 torch
+
 pyhocon>=0.3.60,<1.0.0
-transformers>=4.27.4,<5.0.0
+transformers>=4.27.3,<5.0.0
 peft>=0.2.0,<1.0.0
