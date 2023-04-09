@@ -16,6 +16,7 @@ Modified from https://raw.githubusercontent.com/hpcaitech/ColossalAI/main/applic
 #    limitations under the License.
 '''
 import io
+import gzip
 import copy
 import json
 import logging
@@ -54,6 +55,7 @@ def jload(f, mode="r"):
     f.close()
     return jdict
 
+
 def _tokenize_fn(texts: typing.Sequence[str], tokenizer: transformers.PreTrainedTokenizer, max_length: int) -> typing.Dict:
     """Tokenize a list of strings."""
     tokenized_list = [
@@ -69,12 +71,14 @@ def _tokenize_fn(texts: typing.Sequence[str], tokenizer: transformers.PreTrained
     input_ids_lens = labels_lens = [
         tokenized.input_ids.ne(tokenizer.pad_token_id).sum().item() for tokenized in tokenized_list
     ]
+    # import ipdb; ipdb.set_trace()
     return dict(
         input_ids=input_ids,
-        labels=labels,
+        # labels=labels,
         input_ids_lens=input_ids_lens,
-        labels_lens=labels_lens,
+        # labels_lens=labels_lens,
     )
+
 
 def preprocess(
     sources: typing.Sequence[str],
@@ -86,10 +90,11 @@ def preprocess(
     examples = [s + t for s, t in zip(sources, targets)]
     examples_tokenized, sources_tokenized = [_tokenize_fn(strings, tokenizer, max_length) for strings in (examples, sources)]
     input_ids = examples_tokenized["input_ids"]
-    labels = copy.deepcopy(input_ids)
-    for label, source_len in zip(labels, sources_tokenized["input_ids_lens"]):
+    label_ids = copy.deepcopy(input_ids)
+    for label, source_len in zip(label_ids, sources_tokenized["input_ids_lens"]):
         label[:source_len] = IGNORE_INDEX
-    return dict(input_ids=input_ids, labels=labels)
+    return dict(input_ids=input_ids, label_ids=label_ids)
+
 
 class SupervisedDataset(Dataset):
     """Dataset for supervised fine-tuning."""
@@ -97,25 +102,27 @@ class SupervisedDataset(Dataset):
     def __init__(
         self,
         data_path: str,
-        cache_path: str,
         tokenizer: transformers.PreTrainedTokenizer,
+        cache_path: str = None,
         max_datasets_size: int = None,
         max_length: int = 512
     ):
         super(SupervisedDataset, self).__init__()
 
-        data_path: pathlib.Path = pathlib.Path(data_path)
-        cache_path: pathlib.Path = pathlib.Path(cache_path)
+        data_path: pathlib.Path = pathlib.Path(data_path) if data_path is not None else None
+        cache_path: pathlib.Path = pathlib.Path(cache_path) if cache_path is not None else None
 
-        if cache_path.exists():
-            _logger.info(f"Loading data from cache {cache_path} with {n_samples} samples")
+        if cache_path is not None and cache_path.exists():
+            _logger.info(f"Loading data from cache {cache_path}")
             # the dataset to finetuned may be much smalle than the pretraining data of LLM
             # hence we just simply use torch pickle to cache to tokens
             # if the dataset is very large, tfrecord is more preferred
-            cache_tokens = torch.load(cache_path, map_location="cpu")
+            with gzip.open(cache_path, 'rb') as f:
+                cache_tokens = torch.load(f, map_location="cpu")
             self.input_ids = cache_tokens["input_ids"]
             self.label_ids = cache_tokens["label_ids"]
             n_samples = len(self.label_ids)
+            _logger.info(f"The number of samples is {n_samples}")
 
             if max_datasets_size is not None:
                 _logger.info(f"Limiting dataset to {max_datasets_size} examples.")
@@ -141,14 +148,15 @@ class SupervisedDataset(Dataset):
 
             _logger.info("Tokenizing inputs... This may take some time...")
             data_dict = preprocess(sources, targets, tokenizer, max_length)
+            _logger.info("Tokenizing completed.")
 
             self.input_ids = data_dict["input_ids"]
-            self.label_ids = data_dict["labels"]
+            self.label_ids = data_dict["label_ids"]
 
-            if cache_path.exists():
+            if cache_path is not None and not cache_path.exists():
                 _logger.info(f"Saving preprocssed tokens to cache {cache_path}")
-                torch.save(data_dict, cache_path)
-
+                with gzip.open(cache_path, 'wb') as f:
+                    torch.save(data_dict, f)
 
     def __len__(self) -> int:
         return len(self.input_ids)
