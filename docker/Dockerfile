@@ -10,7 +10,7 @@ ENV LANG=C.UTF-8 LC_ALL=C.UTF-8 \
     # GPU Compute Capability, refer to https://developer.nvidia.com/cuda-gpus
     # Tesla P100 (6.0), NVIDIA V100 (7.0), NVIDIA T4 (7.5), NVIDIA A100 (8.0)
     # GeForce RTX 3090 (8.6)
-    TORCH_CUDA_ARCH_LIST="6.0;7.0;7.5,8.0,8.6"
+    TORCH_CUDA_ARCH_LIST="6.0;7.0;7.5;8.0;8.6"
 
 
 RUN APT_INSTALL="apt-get install -y --no-install-recommends --no-install-suggests" && \
