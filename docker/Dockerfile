@@ -29,5 +29,5 @@ RUN /opt/conda/bin/mamba create -n dev python=${PYTHON_VERSION} && \
 
 RUN PIP_INSTALL="/opt/conda/envs/dev/bin/pip install --no-cache-dir" && \
     $PIP_INSTALL -r https://raw.githubusercontent.com/chenyaofo/OpenLM/main/requirements/torch.txt && \
-    CUDA_EXT=1 $PIP_INSTALL -r https://raw.githubusercontent.com/chenyaofo/OpenLM/main/requirements/base.txt && \
+    DS_BUILD_OPS=1 $PIP_INSTALL -r https://raw.githubusercontent.com/chenyaofo/OpenLM/main/requirements/base.txt && \
     echo 'PIP Install Done!'
