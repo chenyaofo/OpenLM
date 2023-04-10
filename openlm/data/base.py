@@ -1,16 +1,14 @@
+import json
 import copy
+import typing
 
 import torch
 
+from torch.utils.data import Dataset, DataLoader
+from torch.nn.utils.rnn import pad_sequence
 from transformers import PreTrainedTokenizer
-from datasets import load_dataset
 
 from openlm.utils.register import REGISTRY
-
-from torchdata.datapipes.iter import Mapper, Shuffler, Batcher, Collator, ShardingFilter
-from torch.utils.data import DataLoader
-
-from torch.nn.utils.rnn import pad_sequence
 
 
 def _tokenize(
@@ -39,24 +37,38 @@ PROMPT_DICT = {
 }
 
 
+def _generate_instrcution_response_from_sample(
+    sample: dict,
+    tokenizer: PreTrainedTokenizer,
+):
+    # if json has different layout, just modify this function
+
+    # we have a template to wrap the raw instruction
+    prompt_input, prompt_no_input = PROMPT_DICT["prompt_input"], PROMPT_DICT["prompt_no_input"]
+    format_instruction = prompt_input.format_map(sample) \
+        if sample.get("input", "") != "" else prompt_no_input.format_map(sample)
+    responses = f"{sample['output']}{tokenizer.eos_token}"
+
+    return format_instruction, responses
+
+
 def instrction_process(
     sample: dict,
     tokenizer: PreTrainedTokenizer,
     max_length: int,
 ):
-    # we have a template to wrap the raw instruction
-    prompt_input, prompt_no_input = PROMPT_DICT["prompt_input"], PROMPT_DICT["prompt_no_input"]
-    format_instruction = prompt_input.format_map(sample) \
-        if sample.get("input", "") != "" else prompt_no_input.format_map(sample)
-    targets = f"{sample['output']}{tokenizer.eos_token}"
+    instruction, responses = _generate_instrcution_response_from_sample(
+        sample=sample,
+        tokenizer=tokenizer
+    )
 
-    input_ids: torch.Tensor = _tokenize(format_instruction+targets, tokenizer=tokenizer, max_length=max_length)
-    format_instruction_ids: torch.Tensor = _tokenize(format_instruction, tokenizer=tokenizer, max_length=max_length)
-    n_format_instruction_ids = format_instruction_ids.ne(tokenizer.pad_token_id).sum().item()
+    input_ids: torch.Tensor = _tokenize(instruction+responses, tokenizer=tokenizer, max_length=max_length)
+    instruction_ids: torch.Tensor = _tokenize(instruction, tokenizer=tokenizer, max_length=max_length)
+    n_instruction_ids = instruction_ids.ne(tokenizer.pad_token_id).sum().item()
 
     # different from the pretraining LM task, we only calculate loss on the reponse but ignore the instruction
     labels = copy.deepcopy(input_ids)
-    labels[:n_format_instruction_ids] = IGNORE_INDEX  # we ignore the cross entropy loss for format_instructions
+    labels[:n_instruction_ids] = IGNORE_INDEX  # we ignore the cross entropy loss for format_instructions
 
     sample["input_ids"] = input_ids
     sample["labels"] = labels
@@ -67,7 +79,6 @@ def collate_fn(
     samples,
     tokenizer: PreTrainedTokenizer,
 ):
-    # import ipdb; ipdb.set_trace()
     input_ids, labels = tuple([sample[key] for sample in samples] for key in ("input_ids", "labels"))
     input_ids = pad_sequence(input_ids,
                              batch_first=True,
@@ -80,27 +91,46 @@ def collate_fn(
     )
 
 
+class InstructionDataset(Dataset):
+    def __init__(
+        self,
+        filepath: str,
+        transforms: typing.Callable,
+    ):
+        with open(filepath, "r") as f:
+            self.raw_samples = json.load(f)
+        self.transforms = transforms
+
+    def __getitem__(self, index) -> dict:
+        return self.transforms(self.raw_samples[index])
+
+    def __len__(self):
+        return len(self.raw_samples)
+
+
 @REGISTRY.register
 def instruct_json_dataset(
     filepath: str,
     tokenizer: PreTrainedTokenizer,
     max_token_length: int,
+    batch_size: int,
+    num_workers: int,
 ):
-    dataset = load_dataset(
-        "json",
-        data_files=filepath,
-        split="train",
-        streaming=True  # for more efficient data loading
+    # json file should be a list, each item in the list should contains three fields:
+    #   instruction
+    #   input
+    #   output
+    dataset = InstructionDataset(
+        filepath=filepath,
+        transforms=lambda sample: instrction_process(sample, tokenizer, max_token_length)
     )
-    dataset.shuffle
-    dataset = dataset.map(lambda sample: instrction_process(sample, tokenizer, max_token_length), batched=False)
-    dataset = dataset.with_format("torch")
 
-    dataset = Shuffler(dataset, buffer_size=1000)
-    # dataset = Mapper(dataset, fn=lambda sample: (sample["input_ids"], sample["labels"]))
-    dataset = Batcher(dataset, batch_size=64)
-    dataset = Collator(dataset, collate_fn=lambda samples: collate_fn(samples, tokenizer))
-
-    loader = DataLoader(dataset, num_workers=0)
+    loader = DataLoader(
+        dataset,
+        batch_size=batch_size,
+        shuffle=True,
+        num_workers=num_workers,
+        collate_fn=lambda samples: collate_fn(samples, tokenizer)
+    )
 
     return loader
