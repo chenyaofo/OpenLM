@@ -40,5 +40,5 @@ RUN /opt/conda/bin/mamba create -n dev python=${PYTHON_VERSION} && \
 RUN PIP_INSTALL="/opt/conda/envs/dev/bin/pip install --no-cache-dir" && \
     $PIP_INSTALL -r https://raw.githubusercontent.com/chenyaofo/OpenLM/main/requirements/torch.txt && \
     $PIP_INSTALL -r https://raw.githubusercontent.com/chenyaofo/OpenLM/main/requirements/base.txt && \
-    $PIP_INSTALL -r https://raw.githubusercontent.com/chenyaofo/OpenLM/main/requirements/deepspeed.txt && \
+    # $PIP_INSTALL -r https://raw.githubusercontent.com/chenyaofo/OpenLM/main/requirements/deepspeed.txt && \
     echo 'PIP Install Done!'
