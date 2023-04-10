@@ -97,6 +97,10 @@ class InstructionDataset(Dataset):
         filepath: str,
         transforms: typing.Callable,
     ):
+        # json file should be a list, each item in the list should contains three fields:
+        #   instruction
+        #   input
+        #   output
         with open(filepath, "r") as f:
             self.raw_samples = json.load(f)
         self.transforms = transforms
@@ -116,10 +120,6 @@ def instruct_json_dataset(
     batch_size: int,
     num_workers: int,
 ):
-    # json file should be a list, each item in the list should contains three fields:
-    #   instruction
-    #   input
-    #   output
     dataset = InstructionDataset(
         filepath=filepath,
         transforms=lambda sample: instrction_process(sample, tokenizer, max_token_length)
