@@ -3,4 +3,4 @@ pyhocon<1.0.0, >=0.3.60
 tensorboard<3.0.0, >=2.12.0
 transformers<5.0.0, >=4.27.3
 peft<1.0.0, >=0.2.0
-deepspeed<1.0.0, >=0.8.3
+py-cpuinfo<10.0.0, >=9.0.0

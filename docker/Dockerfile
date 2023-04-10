@@ -5,6 +5,8 @@ ENV LANG=C.UTF-8 LC_ALL=C.UTF-8 \
     PYTHON_VERSION=3.10 \
     # pre-install all DeepSpeed C++/CUDA ops
     DS_BUILD_OPS=1 \
+    # disable sparse_attn C++/CUDA ops
+    DS_BUILD_SPARSE_ATTN=0 \
     # GPU Compute Capability, refer to https://developer.nvidia.com/cuda-gpus
     # Tesla P100 (6.0), NVIDIA V100 (7.0), NVIDIA T4 (7.5), NVIDIA A100 (8.0)
     # GeForce RTX 3090 (8.6)
@@ -38,4 +40,5 @@ RUN /opt/conda/bin/mamba create -n dev python=${PYTHON_VERSION} && \
 RUN PIP_INSTALL="/opt/conda/envs/dev/bin/pip install --no-cache-dir" && \
     $PIP_INSTALL -r https://raw.githubusercontent.com/chenyaofo/OpenLM/main/requirements/torch.txt && \
     $PIP_INSTALL -r https://raw.githubusercontent.com/chenyaofo/OpenLM/main/requirements/base.txt && \
+    $PIP_INSTALL -r https://raw.githubusercontent.com/chenyaofo/OpenLM/main/requirements/ds.txt && \
     echo 'PIP Install Done!'
