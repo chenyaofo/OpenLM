@@ -34,8 +34,8 @@ def causallm_model_with_tokenizer(
         )
 
     n_all_param, n_trainable_params = get_n_trainable_parameters(model)
-    _logger.info(f"#all params= {n_all_param/1e6:.2f}M, #trainable params= {n_trainable_params/1e6:.2f}M, "
-                 f"%trainable params= {n_trainable_params/n_all_param:.4f}%")
+    _logger.info(f"#all params={n_all_param/1e6:.2f}M, #trainable params={n_trainable_params/1e6:.2f}M, "
+                 f"%trainable params={n_trainable_params/n_all_param*100.0:.4f}%")
 
     tokenizer = AutoTokenizer.from_pretrained(model_name_or_path)
     # this tokenizer does not have pad token, solve it by erferring to

@@ -1,0 +1,30 @@
+max_epochs: 10
+
+log_interval: 10
+
+parallelism {
+    sharding_strategy: FULL_SHARD # FULL_SHARD | SHARD_GRAD_OP | NO_SHARD
+    use_cpu_offload: false
+}
+
+model {
+    type_: causallm_model_with_tokenizer
+    model_name_or_path: "./huggingface/opt-30b"
+    use_lora: false
+    lora_r: 0
+    lora_alpha: 0.1
+    lora_dropout: 0.1
+}
+
+data {
+    type_: instruct_json_dataset
+    filepath: data/InstructWild/instinwild_en.json
+    max_token_length: 512
+    batch_size: 16
+    num_workers: 6,
+}
+
+optimizer {
+    type_: Adam
+    lr: 0.0001
+}

@@ -4,12 +4,12 @@ import typing
 
 import torch
 
-from torch.utils.data import Dataset, DataLoader
+from torch.utils.data import Dataset, DataLoader, DistributedSampler
 from torch.nn.utils.rnn import pad_sequence
 from transformers import PreTrainedTokenizer
 
 from openlm.utils.register import REGISTRY
-
+from openlm.utils.distributed import is_dist_avail_and_init
 
 def _tokenize(
     text: str,
@@ -84,11 +84,9 @@ def collate_fn(
                              batch_first=True,
                              padding_value=tokenizer.pad_token_id)
     labels = pad_sequence(labels, batch_first=True, padding_value=IGNORE_INDEX)
-    return dict(
-        input_ids=input_ids,
-        labels=labels,
-        attention_mask=input_ids.ne(tokenizer.pad_token_id),
-    )
+    attention_mask=input_ids.ne(tokenizer.pad_token_id)
+    return input_ids, labels, attention_mask
+
 
 
 class InstructionDataset(Dataset):
@@ -125,10 +123,13 @@ def instruct_json_dataset(
         transforms=lambda sample: instrction_process(sample, tokenizer, max_token_length)
     )
 
+    sampler = DistributedSampler(dataset) if is_dist_avail_and_init() else None
+
     loader = DataLoader(
         dataset,
         batch_size=batch_size,
-        shuffle=True,
+        shuffle=sampler is None,
+        sampler=sampler,
         num_workers=num_workers,
         collate_fn=lambda samples: collate_fn(samples, tokenizer)
     )

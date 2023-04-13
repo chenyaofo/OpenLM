@@ -3,6 +3,8 @@ import logging
 import pathlib
 import shutil
 import typing
+import inspect
+from functools import wraps
 
 import torch
 import torch.distributed as dist
@@ -10,16 +12,12 @@ import torch.distributed as dist
 _logger = logging.getLogger(__name__)
 
 
-def distributed_init(dist_backend, init_method, world_size, rank):
+def distributed_init():
+    world_size = int(os.environ.get("WORLD_SIZE", 0))
     if world_size <= 0:
         raise ValueError(f"'world_size' should be greater than zero, but got {world_size}")
     if world_size > 1:
-        _logger.info(f"Init distributed mode(backend={dist_backend}, "
-                     f"init_mothod={init_method}, "
-                     f"rank={rank}, pid={os.getpid()}, world_size={world_size}, "
-                     f"is_master={is_master()}).")
-        dist.init_process_group(backend=dist_backend, init_method=init_method,
-                                world_size=world_size, rank=rank)
+        dist.init_process_group(backend="nccl")
 
 
 def is_dist_avail_and_init() -> bool:
@@ -40,6 +38,13 @@ def rank() -> int:
     """
     return dist.get_rank() if is_dist_avail_and_init() else 0
 
+def local_rank() -> int:
+    """
+
+    Returns:
+        int: The lcoal rank of the current node in distributed system.
+    """
+    return os.environ.get("LOCAL_RANK", 0)
 
 def world_size() -> int:
     """
@@ -74,3 +79,59 @@ def torchsave(obj: typing.Any, f: str) -> None:
         tmp_name = f.with_name("tmp.pt")
         torch.save(obj, tmp_name)
         shutil.move(tmp_name, f)
+
+
+def dummy_func(*args, **kargs):
+    pass
+
+
+class DummyClass:
+    def __getattribute__(self, obj):
+        return dummy_func
+
+
+class FakeObj:
+    def __getattr__(self, name):
+        return do_nothing
+
+
+def do_nothing(*args, **kwargs) -> FakeObj:
+    return FakeObj()
+
+
+def only_master_fn(fn):
+    @wraps(fn)
+    def wrapper(*args, **kwargs):
+        if is_master() or kwargs.get('run_anyway', False):
+            kwargs.pop('run_anyway', None)
+            return fn(*args, **kwargs)
+        else:
+            return FakeObj()
+
+    return wrapper
+
+
+def only_master_cls(cls):
+    for key, value in cls.__dict__.items():
+        if callable(value):
+            setattr(cls, key, only_master_fn(value))
+
+    return cls
+
+
+def only_master_obj(obj):
+    cls = obj.__class__
+    for key, value in cls.__dict__.items():
+        if callable(value):
+            obj.__dict__[key] = only_master_fn(value).__get__(obj, cls)
+
+    return obj
+
+
+def only_master(something):
+    if inspect.isfunction(something):
+        return only_master_fn(something)
+    elif inspect.isclass(something):
+        return only_master_cls(something)
+    else:
+        return only_master_obj(something)
