@@ -1,0 +1,95 @@
+max_steps: 200
+
+log_interval: 1
+
+ckpt_interval: 20
+
+data {
+    type_: instruct_json_dataset
+    filepath: /userhome/datasets/InstructWild/instinwild_en.json
+    max_token_length: 512
+    batch_size: 4
+    num_workers: 6
+}
+
+optimizer {
+    type_: FusedAdam
+    lr: 0.0001
+}
+
+lr_scheduler {
+    type_: lr_scheduler_from_hf_transformer
+    lr_scheduler_type: cosine
+    num_warmup_steps: 0
+    num_training_steps: ${max_steps}
+}
+
+zero_config {
+    stage: 2
+    offload_param: {
+        device: none
+    }
+    offload_optimizer: {
+        device: none
+    }
+    overlap_comm: true
+    stage3_param_persistence_threshold: 1e4
+    stage3_max_live_parameters: 3e7
+    stage3_prefetch_bucket_size: 3e7
+    memory_efficient_linear: False
+}
+
+ds_config {
+    train_batch_size: -1
+    train_micro_batch_size_per_gpu: ${data.batch_size}
+    gradient_accumulation_steps: 8
+    steps_per_print: 1
+    wall_clock_breakdown: true
+    zero_optimization: ${zero_config}
+    fp16: {
+        enabled: True
+        loss_scale_window: 100
+    }
+    zero_allow_untested_optimizer: true
+    gradient_clipping: 1.0
+    prescale_gradients: False
+    wall_clock_breakdown: False
+    hybrid_engine: {
+        enabled: false
+        inference_tp_size: 1
+        release_inference_cache: false
+        pin_parameters: true
+        tp_gather_partition_size: 8
+    }
+    flops_profiler: {
+        enabled: true
+        profile_step: 1
+        module_depth: -1
+        top_modules: 1
+        detailed: true
+        output_file: null
+    }
+    comms_logger: {
+        enabled: false
+        verbose: false
+        prof_all: false
+        debug: false
+    }
+    tensorboard: {
+        enabled: false
+        output_path: output/ds_logs
+        job_name: train_bert
+    }
+}
+
+
+model {
+    type_: causallm_model_with_tokenizer
+    model_name_or_path: /gpfs01/huggingface/baichuan-7B
+    gradient_checkpointing_enable: false
+    use_lora: true
+    lora_module_name: ""
+    lora_r: 128
+    lora_alpha: 1
+    lora_dropout: 0
+}

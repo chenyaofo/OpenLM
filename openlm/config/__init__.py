@@ -6,7 +6,7 @@ from dataclasses import dataclass
 
 from pyhocon import ConfigFactory, ConfigTree
 
-from openlm.utils.typed_args import TypedArgs, add_argument
+from torch4x.typed_args import TypedArgs, add_argument
 
 
 def apply_modifications(modifications: typing.Sequence[str], conf: ConfigTree):
@@ -32,17 +32,19 @@ def apply_modifications(modifications: typing.Sequence[str], conf: ConfigTree):
 
 @dataclass
 class Args(TypedArgs):
-    output_dir: str = add_argument("-o", "--output-dir", default="")
-    conf: str = add_argument("--conf", default="")
+    outdir: typing.Optional[str] = add_argument("-o", default=None)
+    conf: str = add_argument("-c", default="")
     modifications: typing.Sequence[str] = add_argument("-M", nargs='+', help="list")
 
 
 def get_args(argv=sys.argv):
     args, _ = Args.from_known_args(argv)
-    args.output_dir = pathlib.Path(args.output_dir)
+    args: Args
+
+    args.outdir = pathlib.Path(args.outdir)
 
     args.conf: ConfigTree = ConfigFactory.parse_file(args.conf)
-    args.output_dir.mkdir(parents=True, exist_ok=True)
+    args.outdir.mkdir(parents=True, exist_ok=True)
 
     apply_modifications(modifications=args.modifications, conf=args.conf)
 

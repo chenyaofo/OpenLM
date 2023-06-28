@@ -8,8 +8,8 @@ from torch.utils.data import Dataset, DataLoader, DistributedSampler
 from torch.nn.utils.rnn import pad_sequence
 from transformers import PreTrainedTokenizer
 
-from openlm.utils.register import REGISTRY
-from openlm.utils.distributed import is_dist_avail_and_init
+from torch4x.register import REGISTRY
+from torch4x.distributed import is_dist_avail_and_init
 
 def _tokenize(
     text: str,
@@ -85,7 +85,7 @@ def collate_fn(
                              padding_value=tokenizer.pad_token_id)
     labels = pad_sequence(labels, batch_first=True, padding_value=IGNORE_INDEX)
     attention_mask=input_ids.ne(tokenizer.pad_token_id)
-    return input_ids, labels, attention_mask
+    return dict(input_ids=input_ids, labels=labels, attention_mask=attention_mask)
 
 
 

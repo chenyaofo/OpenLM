@@ -2,7 +2,7 @@ import torch.optim as optim
 from deepspeed.ops.adam import DeepSpeedCPUAdam as RawDeepSpeedCPUAdam
 from deepspeed.ops.adam import FusedAdam
 
-from openlm.utils.register import REGISTRY
+from torch4x.register import REGISTRY
 
 class DeepSpeedCPUAdam(RawDeepSpeedCPUAdam):
     def __init__(self, params, **kwargs):
